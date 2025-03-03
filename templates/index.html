@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>出勤管理システム</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
+        button { padding: 15px; font-size: 18px; margin: 10px; cursor: pointer; }
+    </style>
+    <script>
+        function record(action) {
+            fetch("/record", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: action })
+            })
+            .then(response => response.json())
+            .then(data => alert(data.message))
+            .catch(error => alert("エラーが発生しました！"));
+        }
+    </script>
+</head>
+<body>
+    <h1>出勤管理システム</h1>
+    <button onclick="record('shukkin')">出勤</button>
+    <button onclick="record('kyukei1_start')">1回目休憩開始</button>
+    <button onclick="record('kyukei1_end')">1回目休憩終了</button>
+    <button onclick="record('kyukei2_start')">2回目休憩開始</button>
+    <button onclick="record('kyukei2_end')">2回目休憩終了</button>
+    <button onclick="record('taikin')">退勤</button>
+</body>
+</html>
