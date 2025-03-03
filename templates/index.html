@@ -7,13 +7,42 @@
     <style>
         body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
         button { padding: 15px; font-size: 18px; margin: 10px; cursor: pointer; }
+        input { padding: 10px; font-size: 16px; margin: 10px; }
     </style>
     <script>
+        let currentUser = null; // ログインしたユーザー情報
+
+        // ログイン処理
+        function login() {
+            const password = document.getElementById("password").value;
+            fetch("/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ password: password })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    currentUser = data.user;
+                    document.getElementById("login-form").style.display = "none";
+                    document.getElementById("action-buttons").style.display = "block";
+                } else {
+                    alert("パスワードが間違っています！");
+                }
+            })
+            .catch(error => alert("エラーが発生しました！"));
+        }
+
+        // アクションを送信
         function record(action) {
+            if (!currentUser) {
+                alert("ログインしてください！");
+                return;
+            }
             fetch("/record", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action: action })
+                body: JSON.stringify({ action: action, user: currentUser })
             })
             .then(response => response.json())
             .then(data => alert(data.message))
@@ -23,11 +52,21 @@
 </head>
 <body>
     <h1>出勤管理システム</h1>
-    <button onclick="record('shukkin')">出勤</button>
-    <button onclick="record('kyukei1_start')">1回目休憩開始</button>
-    <button onclick="record('kyukei1_end')">1回目休憩終了</button>
-    <button onclick="record('kyukei2_start')">2回目休憩開始</button>
-    <button onclick="record('kyukei2_end')">2回目休憩終了</button>
-    <button onclick="record('taikin')">退勤</button>
+
+    <!-- ログインフォーム -->
+    <div id="login-form">
+        <input type="password" id="password" placeholder="パスワードを入力" />
+        <button onclick="login()">ログイン</button>
+    </div>
+
+    <!-- アクションボタン（ログイン後表示） -->
+    <div id="action-buttons" style="display: none;">
+        <button onclick="record('shukkin')">出勤</button>
+        <button onclick="record('kyukei1_start')">1回目休憩開始</button>
+        <button onclick="record('kyukei1_end')">1回目休憩終了</button>
+        <button onclick="record('kyukei2_start')">2回目休憩開始</button>
+        <button onclick="record('kyukei2_end')">2回目休憩終了</button>
+        <button onclick="record('taikin')">退勤</button>
+    </div>
 </body>
 </html>
