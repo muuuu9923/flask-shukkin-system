@@ -69,6 +69,9 @@ def login():
 # 今日の出勤状況を取得
 @app.route("/get_today_status", methods=["GET"])
 def get_today_status():
+    if "user" not in session:  # ログインしていない場合
+        return jsonify({"error": "ログインしてください！"}), 400
+
     today_row = get_today_row()
 
     shukkin_time = sheet.cell(today_row, 3).value  # 出勤（C列）
@@ -90,7 +93,7 @@ def get_today_status():
 # ボタンが押されたときに記録する処理
 @app.route("/record", methods=["POST"])
 def record():
-    if "user" not in session:  # セッションがない場合、ログインしていないと見なす
+    if "user" not in session:  # ログインしていない場合
         return jsonify({"error": "ログインしてください！"}), 400
 
     data = request.json
