@@ -7,40 +7,48 @@ import json
 
 app = Flask(__name__)
 
-# セッション用の秘密鍵設定（セッションを安全に使用するため）
-app.secret_key = os.urandom(24)
+################################################################
+# 1) セッションの設定
+################################################################
+app.secret_key = os.urandom(24)  # セッションの秘密鍵
 
-# セッションCookieの設定
-# httpsで運用する場合は True。ローカルなど http でテストする際は False にする
+# Cookieの設定 – ローカルでhttpならSecure=FalseにしないとCookieがブロックされる場合があります
 app.config['SESSION_COOKIE_SAMESITE'] = 'None'
 app.config['SESSION_COOKIE_SECURE'] = False
 
-# Google Sheets API 設定
+################################################################
+# 2) Google Sheets API の設定
+################################################################
 creds_json = os.getenv("GOOGLE_CREDENTIALS")
 if creds_json is None:
-    raise ValueError("環境変数 'GOOGLE_CREDENTIALS' が設定されていません。")
+    raise ValueError("環境変数 'GOOGLE_CREDENTIALS' が設定されていません")
 
 creds_dict = json.loads(creds_json)
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
 client = gspread.authorize(creds)
 
-SPREADSHEET_ID = "1A3wPi4iZ2PCf-WSPFqeNvWKltmwTgsZOa78OfE6M1kY"  # スプレッドシートIDを入れる
+# スプレッドシートID
+SPREADSHEET_ID = "1A3wPi4iZ2PCf-WSPFqeNvWKltmwTgsZOa78OfE6M1kY"
 sheet = client.open_by_key(SPREADSHEET_ID).sheet1
 
-USER_PASSWORD = "5689"  # パスワード設定
+################################################################
+# 3) 設定項目
+################################################################
+USER_PASSWORD = "5689"  # ログインパスワード
 
-# 今日の日付を取得
+################################################################
+# 4) ユーティリティ関数
+################################################################
 def get_today_row():
+    """今日の日付に対応するスプレッドシートの行番号を返す (1日 -> 6行目, ...)"""
     today = datetime.datetime.now().day
-    return today + 5  # 1日 → 6行目, 2日 → 7行目, ...
+    return today + 5
 
 def round_down_to_nearest_6(minutes):
-    """現在の分を6分単位に切り捨て"""
     return (minutes // 6) * 6
 
 def round_up_to_nearest_6(minutes):
-    """現在の分を6分単位に切り上げ"""
     return ((minutes + 5) // 6) * 6
 
 def get_rounded_time(is_cut_off=True):
@@ -53,36 +61,40 @@ def get_rounded_time(is_cut_off=True):
     else:
         minutes = round_up_to_nearest_6(minutes)
 
+    # もし24時を超えたら時を+1
     if hour >= 24:
         hour += 1
 
     return now.replace(minute=minutes, second=0, microsecond=0, hour=hour)
 
-# ログイン認証
+################################################################
+# 5) ログイン機能
+################################################################
 @app.route("/login", methods=["POST"])
 def login():
     data = request.json
     password = data.get("password")
-
     if password == USER_PASSWORD:
-        session["user"] = "logged_in"  # ログイン状態をセッションに保存
+        session["user"] = "logged_in"  # セッションにログイン状態を保存
         return jsonify({"success": True})
     else:
         return jsonify({"success": False})
 
-# 今日の出勤状況を取得
+################################################################
+# 6) 今日の出勤状況を取得
+################################################################
 @app.route("/get_today_status", methods=["GET"])
 def get_today_status():
     if "user" not in session:
         return jsonify({"error": "ログインしてください！"}), 400
 
     row = get_today_row()
-    shukkin_time = sheet.cell(row, 3).value  # 出勤（C列）
-    kyukei1_start = sheet.cell(row, 4).value  # 1回目休憩開始（D列）
-    kyukei1_end = sheet.cell(row, 5).value  # 1回目休憩終了（E列）
-    kyukei2_start = sheet.cell(row, 6).value  # 2回目休憩開始（F列）
-    kyukei2_end = sheet.cell(row, 7).value  # 2回目休憩終了（G列）
-    taikin_time = sheet.cell(row, 9).value  # 退勤（I列）
+    shukkin_time = sheet.cell(row, 3).value
+    kyukei1_start = sheet.cell(row, 4).value
+    kyukei1_end = sheet.cell(row, 5).value
+    kyukei2_start = sheet.cell(row, 6).value
+    kyukei2_end = sheet.cell(row, 7).value
+    taikin_time = sheet.cell(row, 9).value
 
     return jsonify({
         "shukkin_time": shukkin_time,
@@ -93,7 +105,9 @@ def get_today_status():
         "taikin_time": taikin_time
     })
 
-# ボタンが押されたときに記録する処理
+################################################################
+# 7) 出勤・休憩・退勤の記録
+################################################################
 @app.route("/record", methods=["POST"])
 def record():
     if "user" not in session:
@@ -101,17 +115,16 @@ def record():
 
     data = request.json
     action = data["action"]
-
-    now = get_rounded_time(is_cut_off=True) if action in ["shukkin", "kyukei1_start", "kyukei2_start"] else get_rounded_time(is_cut_off=False)
+    now = get_rounded_time(is_cut_off=(action in ["shukkin","kyukei1_start","kyukei2_start"]))
     row = get_today_row()
 
     action_map = {
-        "shukkin": 3,       # 出勤  C列
-        "kyukei1_start": 4, # 1回目休憩開始 D列
-        "kyukei1_end": 5,   # 1回目休憩終了 E列
-        "kyukei2_start": 6, # 2回目休憩開始 F列
-        "kyukei2_end": 7,   # 2回目休憩終了 G列
-        "taikin": 9         # 退勤  I列
+        "shukkin":       3,
+        "kyukei1_start": 4,
+        "kyukei1_end":   5,
+        "kyukei2_start": 6,
+        "kyukei2_end":   7,
+        "taikin":        9
     }
 
     if action in action_map:
@@ -120,24 +133,25 @@ def record():
     else:
         return jsonify({"error": "無効なアクションです。"}), 400
 
-# 手動編集ページ表示
+################################################################
+# 8) 手動編集ページ
+################################################################
 @app.route("/manual_edit", methods=["GET"])
 def manual_edit():
     if "user" not in session:
         return redirect(url_for("index"))
-    
+
     row = get_today_row()
     data = {
-        "shukkin": sheet.cell(row, 3).value,
-        "kyukei1_start": sheet.cell(row, 4).value,
-        "kyukei1_end": sheet.cell(row, 5).value,
-        "kyukei2_start": sheet.cell(row, 6).value,
-        "kyukei2_end": sheet.cell(row, 7).value,
-        "taikin": sheet.cell(row, 9).value
+        "shukkin":        sheet.cell(row, 3).value,
+        "kyukei1_start":  sheet.cell(row, 4).value,
+        "kyukei1_end":    sheet.cell(row, 5).value,
+        "kyukei2_start":  sheet.cell(row, 6).value,
+        "kyukei2_end":    sheet.cell(row, 7).value,
+        "taikin":         sheet.cell(row, 9).value
     }
     return render_template("manual_edit.html", data=data)
 
-# 手動編集データの更新処理
 @app.route("/update_manual", methods=["POST"])
 def update_manual():
     if "user" not in session:
@@ -145,21 +159,25 @@ def update_manual():
 
     data = request.json
     row = get_today_row()
-
     sheet.update_cell(row, 3, data.get("shukkin"))
     sheet.update_cell(row, 4, data.get("kyukei1_start"))
     sheet.update_cell(row, 5, data.get("kyukei1_end"))
     sheet.update_cell(row, 6, data.get("kyukei2_start"))
     sheet.update_cell(row, 7, data.get("kyukei2_end"))
     sheet.update_cell(row, 9, data.get("taikin"))
-
     return jsonify({"message": "データが更新されました！"})
 
+################################################################
+# 9) ルート: index
+################################################################
 @app.route("/")
 def index():
     return render_template("index.html")
 
+################################################################
+# 10) アプリケーション起動
+################################################################
 if __name__ == "__main__":
-    # 本番環境が https の場合は SESSION_COOKIE_SECURE を True にする
-    # ローカル環境でのテストは http なので、False にしないとクッキーがブロックされる可能性あり
+    # https環境なら SESSION_COOKIE_SECURE=True
+    # ローカル( http ) なら False
     app.run(host="0.0.0.0", port=5000, debug=True)
