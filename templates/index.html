@@ -1,14 +1,140 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>出勤管理システム</title>
+    <link href="https://fonts.googleapis.com/css2?family=San+Francisco&display=swap" rel="stylesheet">
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
-        button { padding: 15px; font-size: 18px; margin: 10px; cursor: pointer; }
-        input { padding: 10px; font-size: 16px; margin: 10px; }
+        /* 全体のスタイル */
+        body {
+            font-family: 'San Francisco', sans-serif;
+            background-color: #F7F7F7;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            text-align: center;
+        }
+
+        h1 {
+            color: #333;
+            margin-top: 50px;
+            font-size: 2.5em;
+            font-weight: bold;
+        }
+
+        /* ログインフォーム */
+        #login-form,
+        #action-buttons {
+            background-color: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            margin: 40px auto;
+            padding: 40px;
+            width: 350px;
+            text-align: center;
+        }
+
+        input {
+            padding: 16px;
+            font-size: 18px;
+            width: 85%;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            margin-bottom: 30px;
+            outline: none;
+            background-color: #FAFAFA;
+        }
+
+        input:focus {
+            border-color: #007AFF;
+        }
+
+        button {
+            padding: 14px 28px;
+            font-size: 18px;
+            background-color: #007AFF;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 85%;
+            transition: background-color 0.3s ease;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        button:hover {
+            background-color: #0051BB;
+        }
+
+        /* アクションボタン */
+        #action-buttons button {
+            background-color: #34C759;
+            margin-bottom: 15px;
+            width: 80%;
+        }
+
+        #action-buttons button:hover {
+            background-color: #28B34D;
+        }
+
+        /* モバイル対応 */
+        @media (max-width: 768px) {
+            #login-form,
+            #action-buttons {
+                width: 90%;
+            }
+        }
+
+        /* テーブル */
+        table {
+            width: 80%;
+            margin: 50px auto;
+            border-collapse: collapse;
+            text-align: center;
+        }
+
+        th,
+        td {
+            padding: 16px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+        }
+
+        th {
+            background-color: #007AFF;
+            color: white;
+        }
+
+        tr:hover {
+            background-color: #F5F5F5;
+        }
     </style>
+</head>
+
+<body>
+    <h1>出勤管理システム</h1>
+
+    <!-- ログインフォーム -->
+    <div id="login-form">
+        <input type="password" id="password" placeholder="パスワードを入力" />
+        <button onclick="login()">ログイン</button>
+    </div>
+
+    <!-- アクションボタン（ログイン後表示） -->
+    <div id="action-buttons" style="display: none;">
+        <button onclick="record('shukkin')">出勤</button>
+        <button onclick="record('kyukei1_start')">1回目休憩開始</button>
+        <button onclick="record('kyukei1_end')">1回目休憩終了</button>
+        <button onclick="record('kyukei2_start')">2回目休憩開始</button>
+        <button onclick="record('kyukei2_end')">2回目休憩終了</button>
+        <button onclick="record('taikin')">退勤</button>
+    </div>
+
+    <!-- 労働時間の表示 -->
+    <div id="hours-table"></div>
+
     <script>
         let currentUser = null; // ログインしたユーザー情報
 
@@ -23,7 +149,7 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    currentUser = data.user;
+                    currentUser = data.user;  // ログイン成功後にユーザー情報を設定
                     document.getElementById("login-form").style.display = "none";
                     document.getElementById("action-buttons").style.display = "block";
                 } else {
@@ -48,25 +174,33 @@
             .then(data => alert(data.message))
             .catch(error => alert("エラーが発生しました！"));
         }
+
+        // 労働時間を表示
+        function displayHours() {
+            fetch("/calculate_hours", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    "shukkin_1": "08:00", "taikin_1": "18:00",  // 例
+                    "shukkin_2": "08:30", "taikin_2": "17:45",  // 例
+                    // その他の日付もここに追加
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                const regularHours = data.regular_hours;
+                const nightHours = data.night_hours;
+                
+                let tableHtml = "<table><thead><tr><th>日付</th><th>通常時間</th><th>深夜時間</th></tr></thead><tbody>";
+                for (let i = 0; i < regularHours.length; i++) {
+                    tableHtml += `<tr><td>${i + 1}</td><td>${regularHours[i]}</td><td>${nightHours[i]}</td></tr>`;
+                }
+                tableHtml += "</tbody></table>";
+                document.getElementById("hours-table").innerHTML = tableHtml;
+            })
+            .catch(error => alert("労働時間の計算中にエラーが発生しました"));
+        }
     </script>
-</head>
-<body>
-    <h1>出勤管理システム</h1>
-
-    <!-- ログインフォーム -->
-    <div id="login-form">
-        <input type="password" id="password" placeholder="パスワードを入力" />
-        <button onclick="login()">ログイン</button>
-    </div>
-
-    <!-- アクションボタン（ログイン後表示） -->
-    <div id="action-buttons" style="display: none;">
-        <button onclick="record('shukkin')">出勤</button>
-        <button onclick="record('kyukei1_start')">1回目休憩開始</button>
-        <button onclick="record('kyukei1_end')">1回目休憩終了</button>
-        <button onclick="record('kyukei2_start')">2回目休憩開始</button>
-        <button onclick="record('kyukei2_end')">2回目休憩終了</button>
-        <button onclick="record('taikin')">退勤</button>
-    </div>
 </body>
+
 </html>
