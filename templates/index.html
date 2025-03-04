@@ -1,16 +1,110 @@
 <!DOCTYPE html>
 <html lang="ja">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>出勤管理システム</title>
     <style>
-        /* 省略: 前述のスタイルコード */
+        /* 基本のスタイル */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f7f7f7;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            flex-direction: column;
+        }
+
+        /* ヘッダー */
+        h1 {
+            font-size: 32px;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        /* ログインフォーム */
+        #login-form {
+            width: 300px;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        input[type="password"] {
+            padding: 12px 15px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            width: 100%;
+            box-sizing: border-box;
+            font-size: 16px;
+            background-color: #f9f9f9;
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 12px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            box-sizing: border-box;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        /* アクションボタン */
+        #action-buttons {
+            display: none;
+            margin-top: 20px;
+        }
+
+        #action-buttons button {
+            background-color: #28a745;
+            color: white;
+            padding: 12px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 10px;
+            width: 200px;
+            transition: background-color 0.3s;
+        }
+
+        #action-buttons button:hover {
+            background-color: #218838;
+        }
+
+        /* ダークモード対応 */
+        .dark-mode {
+            background-color: #2f2f2f;
+            color: #f0f0f0;
+        }
+
+        .dark-mode button {
+            background-color: #333;
+        }
+
+        .dark-mode button:hover {
+            background-color: #444;
+        }
     </style>
 </head>
-
 <body>
+
     <h1>出勤管理システム</h1>
 
     <!-- ログインフォーム -->
@@ -20,14 +114,13 @@
     </div>
 
     <!-- アクションボタン（ログイン後表示） -->
-    <div id="action-buttons" style="display: none;">
+    <div id="action-buttons">
         <button onclick="record('shukkin')">出勤</button>
         <button onclick="record('kyukei1_start')">1回目休憩開始</button>
         <button onclick="record('kyukei1_end')">1回目休憩終了</button>
         <button onclick="record('kyukei2_start')">2回目休憩開始</button>
         <button onclick="record('kyukei2_end')">2回目休憩終了</button>
         <button onclick="record('taikin')">退勤</button>
-        <button onclick="logout()">ログアウト</button> <!-- ログアウトボタン追加 -->
     </div>
 
     <script>
@@ -44,6 +137,7 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
+                    currentUser = data.user;
                     document.getElementById("login-form").style.display = "none";
                     document.getElementById("action-buttons").style.display = "block";
                 } else {
@@ -53,32 +147,29 @@
             .catch(error => alert("エラーが発生しました！"));
         }
 
-        // ログアウト処理
-        function logout() {
-            fetch("/logout", {
-                method: "POST"
-            })
-            .then(response => response.json())
-            .then(data => {
-                alert(data.message);
-                document.getElementById("action-buttons").style.display = "none";
-                document.getElementById("login-form").style.display = "block";
-            })
-            .catch(error => alert("エラーが発生しました！"));
-        }
-
         // アクションを送信
         function record(action) {
+            if (!currentUser) {
+                alert("ログインしてください！");
+                return;
+            }
             fetch("/record", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action: action })
+                body: JSON.stringify({ action: action, user: currentUser })
             })
             .then(response => response.json())
             .then(data => alert(data.message))
             .catch(error => alert("エラーが発生しました！"));
         }
-    </script>
-</body>
 
+        // ダークモード切り替え
+        function toggleDarkMode() {
+            document.body.classList.toggle('dark-mode');
+        }
+    </script>
+
+    <button onclick="toggleDarkMode()">ダークモード切り替え</button>
+
+</body>
 </html>

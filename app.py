@@ -29,6 +29,70 @@ def get_today_row():
     today = datetime.datetime.now().day
     return today + 5  # 1日 → 6行目, 2日 → 7行目, ...
 
+def round_down_to_nearest_6(minutes):
+    """現在の分を6分単位に切り捨て"""
+    return (minutes // 6) * 6
+
+def round_up_to_nearest_6(minutes):
+    """現在の分を6分単位に切り上げ"""
+    return ((minutes + 5) // 6) * 6
+
+def get_rounded_time(is_cut_off=True):
+    now = datetime.datetime.now()
+    minutes = now.minute
+    hour = now.hour
+
+    # 出勤時間、休憩開始、休憩終了時間を計算する場合
+    if is_cut_off:
+        minutes = round_down_to_nearest_6(minutes)
+    else:
+        minutes = round_up_to_nearest_6(minutes)
+
+    # もし24時を過ぎた場合、時間を増加させる
+    if hour >= 24:
+        hour += 1
+
+    return now.replace(minute=minutes, second=0, microsecond=0, hour=hour)
+
+def convert_minutes_to_fraction(minutes):
+    """分数に変換（6分単位）"""
+    return round(minutes / 6, 1)
+
+def calculate_work_hours(start_time_str, end_time_str):
+    """ 出勤時間と退勤時間から労働時間を計算（通常と深夜に分けて） """
+    start_time = datetime.datetime.strptime(start_time_str, "%H:%M")
+    end_time = datetime.datetime.strptime(end_time_str, "%H:%M")
+    
+    # 時間の差を計算
+    work_duration = end_time - start_time
+    
+    # 時間数に換算
+    total_minutes = work_duration.total_seconds() / 60  # 分に換算
+    
+    # 通常労働時間（22時前）
+    regular_minutes = 0
+    if start_time.hour < 22:
+        if end_time.hour <= 22:
+            regular_minutes = total_minutes
+        else:
+            # 22時以降の時間もあるので22時までの時間を計算
+            regular_minutes = (datetime.datetime(start_time.year, start_time.month, start_time.day, 22, 0) - start_time).total_seconds() / 60
+    
+    # 深夜労働時間（22時以降）
+    night_minutes = 0
+    if end_time.hour >= 22:
+        # 22時からの労働時間を計算
+        if end_time.hour < 24:
+            night_minutes = total_minutes
+        else:
+            night_minutes = (end_time - datetime.datetime(end_time.year, end_time.month, end_time.day, 22, 0)).total_seconds() / 60
+    
+    # 分数に変換
+    regular_hours = convert_minutes_to_fraction(regular_minutes)
+    night_hours = convert_minutes_to_fraction(night_minutes)
+    
+    return regular_hours, night_hours
+
 # ログイン認証
 @app.route("/login", methods=["POST"])
 def login():
@@ -50,7 +114,13 @@ def record():
 
     data = request.json
     action = data["action"]
-    now = datetime.datetime.now().strftime("%H:%M")
+    
+    # 出勤、休憩開始、休憩終了、退勤に応じて時間を計算
+    if action in ["shukkin", "kyukei1_start", "kyukei2_start"]:
+        now = get_rounded_time(is_cut_off=True)  # 切り捨て
+    else:
+        now = get_rounded_time(is_cut_off=False)  # 切り上げ
+    
     row = get_today_row()
 
     # アクションに応じて記録するセルを決定
@@ -64,7 +134,30 @@ def record():
     }
 
     if action in action_map:
-        sheet.update_cell(row, action_map[action], now)
+        sheet.update_cell(row, action_map[action], now.strftime("%H:%M"))
+        
+        # 出勤時間と退勤時間から労働時間（通常と深夜）を計算
+        if action in ["shukkin", "taikin"]:  # 出勤または退勤時に労働時間計算
+            start_time = sheet.cell(row, 3).value  # 出勤時間（C列）
+            end_time = now.strftime("%H:%M")  # 退勤時間
+            regular_hours, night_hours = calculate_work_hours(start_time, end_time)
+            
+            # I列（通常労働時間）とJ列（深夜労働時間）に出力
+            sheet.update_cell(row, 9, regular_hours)  # I列（通常労働時間）
+            sheet.update_cell(row, 10, night_hours)  # J列（深夜労働時間）
+
+            # 日別の労働時間合計を計算（I6〜I36, J6〜J36に表示）
+            for i in range(6, 37):
+                total_regular_hours = 0
+                total_night_hours = 0
+                for j in range(6, 37):
+                    total_regular_hours += float(sheet.cell(i, 9).value or 0)  # I列（通常労働時間）
+                    total_night_hours += float(sheet.cell(i, 10).value or 0)  # J列（深夜労働時間）
+
+                # 合計をI6〜I36、J6〜J36に反映
+                sheet.update_cell(i, 9, total_regular_hours)  # I列（通常労働時間合計）
+                sheet.update_cell(i, 10, total_night_hours)  # J列（深夜労働時間合計）
+        
         return jsonify({"message": f"{action} を記録しました！"})
     else:
         return jsonify({"error": "無効なアクションです。"}), 400
