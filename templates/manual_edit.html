@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>出勤管理システム - 手動編集</title>
+    <title>手動編集ページ</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
@@ -43,27 +43,30 @@
 <body>
     <h1>手動編集ページ</h1>
 
-    <div>
+    <form id="edit-form">
         <label for="shukkin">出勤時間:</label>
-        <input type="time" id="shukkin" value="{{ data.shukkin }}">
+        <input type="time" id="shukkin" value="{{ data['shukkin'] }}">
         <br>
         <label for="kyukei1_start">1回目休憩開始:</label>
-        <input type="time" id="kyukei1_start" value="{{ data.kyukei1_start }}">
+        <input type="time" id="kyukei1_start" value="{{ data['kyukei1_start'] }}">
         <br>
         <label for="kyukei1_end">1回目休憩終了:</label>
-        <input type="time" id="kyukei1_end" value="{{ data.kyukei1_end }}">
+        <input type="time" id="kyukei1_end" value="{{ data['kyukei1_end'] }}">
         <br>
         <label for="kyukei2_start">2回目休憩開始:</label>
-        <input type="time" id="kyukei2_start" value="{{ data.kyukei2_start }}">
+        <input type="time" id="kyukei2_start" value="{{ data['kyukei2_start'] }}">
         <br>
         <label for="kyukei2_end">2回目休憩終了:</label>
-        <input type="time" id="kyukei2_end" value="{{ data.kyukei2_end }}">
+        <input type="time" id="kyukei2_end" value="{{ data['kyukei2_end'] }}">
         <br>
         <label for="taikin">退勤時間:</label>
-        <input type="time" id="taikin" value="{{ data.taikin }}">
-        <br>
-        <button onclick="updateManual()">更新</button>
-    </div>
+        <input type="time" id="taikin" value="{{ data['taikin'] }}">
+        <br><br>
+        <button type="button" onclick="updateManual()">更新</button>
+    </form>
+
+    <br>
+    <button onclick="showSheetData()">シートデータを表示</button>
 
     <script>
         function updateManual() {
@@ -84,6 +87,10 @@
             .then(response => response.json())
             .then(data => alert(data.message))
             .catch(error => alert("エラーが発生しました！"));
+        }
+
+        function showSheetData() {
+            window.open("https://docs.google.com/spreadsheets/d/1A3wPi4iZ2PCf-WSPFqeNvWKltmwTgsZOa78OfE6M1kY/edit", "_blank");
         }
     </script>
 </body>
