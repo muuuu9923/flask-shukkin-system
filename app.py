@@ -90,7 +90,7 @@ def get_today_status():
 # ボタンが押されたときに記録する処理
 @app.route("/record", methods=["POST"])
 def record():
-    if "user" not in session:  # ログインチェック
+    if "user" not in session:  # セッションがない場合、ログインしていないと見なす
         return jsonify({"error": "ログインしてください！"}), 400
 
     data = request.json
@@ -100,12 +100,12 @@ def record():
     row = get_today_row()
 
     action_map = {
-        "shukkin": 3,
-        "kyukei1_start": 4,
-        "kyukei1_end": 5,
-        "kyukei2_start": 6,
-        "kyukei2_end": 7,
-        "taikin": 9
+        "shukkin": 3,  # 出勤
+        "kyukei1_start": 4,  # 1回目休憩開始
+        "kyukei1_end": 5,  # 1回目休憩終了
+        "kyukei2_start": 6,  # 2回目休憩開始
+        "kyukei2_end": 7,  # 2回目休憩終了
+        "taikin": 9  # 退勤
     }
 
     if action in action_map:
