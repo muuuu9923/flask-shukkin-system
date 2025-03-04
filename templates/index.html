@@ -5,78 +5,84 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>出勤管理システム</title>
-    <link href="https://fonts.googleapis.com/css2?family=San+Francisco&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
     <style>
-        /* 全体のスタイル */
+        /* ベースのスタイル */
         body {
-            font-family: 'San Francisco', sans-serif;
-            background-color: #F7F7F7;
+            font-family: 'Roboto', sans-serif;
+            background-color: #f0f2f5;
             color: #333;
             margin: 0;
             padding: 0;
-            text-align: center;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            flex-direction: column;
+            transition: background-color 0.3s, color 0.3s;
         }
 
         h1 {
             color: #333;
-            margin-top: 50px;
             font-size: 2.5em;
-            font-weight: bold;
+            margin-bottom: 20px;
+            font-weight: 500;
         }
 
         /* ログインフォーム */
         #login-form,
         #action-buttons {
-            background-color: #fff;
-            border-radius: 12px;
+            background-color: white;
+            border-radius: 15px;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            margin: 40px auto;
             padding: 40px;
-            width: 350px;
+            width: 90%;
+            max-width: 400px;
             text-align: center;
         }
 
         input {
-            padding: 16px;
+            padding: 12px;
             font-size: 18px;
             width: 85%;
             border-radius: 8px;
-            border: 1px solid #ddd;
-            margin-bottom: 30px;
+            border: 1px solid #ccc;
+            margin-bottom: 25px;
             outline: none;
-            background-color: #FAFAFA;
+            transition: border-color 0.3s;
         }
 
         input:focus {
-            border-color: #007AFF;
+            border-color: #4CAF50;
         }
 
         button {
-            padding: 14px 28px;
+            padding: 12px 24px;
             font-size: 18px;
-            background-color: #007AFF;
+            background-color: #4CAF50;
             color: white;
             border: none;
             border-radius: 8px;
             cursor: pointer;
             width: 85%;
-            transition: background-color 0.3s ease;
+            margin-bottom: 15px;
+            transition: background-color 0.3s ease, transform 0.2s ease;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
         }
 
         button:hover {
-            background-color: #0051BB;
+            background-color: #45a049;
+            transform: scale(1.05);
         }
 
         /* アクションボタン */
         #action-buttons button {
-            background-color: #34C759;
-            margin-bottom: 15px;
-            width: 80%;
+            background-color: #007BFF;
+            margin-bottom: 10px;
         }
 
         #action-buttons button:hover {
-            background-color: #28B34D;
+            background-color: #0056b3;
         }
 
         /* モバイル対応 */
@@ -87,28 +93,47 @@
             }
         }
 
-        /* テーブル */
-        table {
-            width: 80%;
-            margin: 50px auto;
-            border-collapse: collapse;
-            text-align: center;
-        }
-
-        th,
-        td {
-            padding: 16px;
-            font-size: 16px;
-            border: 1px solid #ddd;
-        }
-
-        th {
-            background-color: #007AFF;
+        /* ダークモード用のクラス */
+        body.dark-mode {
+            background-color: #121212;
             color: white;
         }
 
-        tr:hover {
-            background-color: #F5F5F5;
+        body.dark-mode h1 {
+            color: white;
+        }
+
+        body.dark-mode #login-form,
+        body.dark-mode #action-buttons {
+            background-color: #1c1c1c;
+        }
+
+        body.dark-mode button {
+            background-color: #6200ee;
+        }
+
+        body.dark-mode button:hover {
+            background-color: #3700b3;
+        }
+
+        /* ダークモードのトグルボタン */
+        #dark-mode-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: #6200ee;
+            border: none;
+            border-radius: 50%;
+            color: white;
+            padding: 10px 15px;
+            font-size: 18px;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            transition: background-color 0.3s ease;
+        }
+
+        #dark-mode-toggle:hover {
+            background-color: #3700b3;
         }
     </style>
 </head>
@@ -132,8 +157,8 @@
         <button onclick="record('taikin')">退勤</button>
     </div>
 
-    <!-- 労働時間の表示 -->
-    <div id="hours-table"></div>
+    <!-- ダークモードの切り替えボタン -->
+    <button id="dark-mode-toggle" onclick="toggleDarkMode()">🌙</button>
 
     <script>
         let currentUser = null; // ログインしたユーザー情報
@@ -149,7 +174,7 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    currentUser = data.user;  // ログイン成功後にユーザー情報を設定
+                    currentUser = data.user;
                     document.getElementById("login-form").style.display = "none";
                     document.getElementById("action-buttons").style.display = "block";
                 } else {
@@ -175,30 +200,15 @@
             .catch(error => alert("エラーが発生しました！"));
         }
 
-        // 労働時間を表示
-        function displayHours() {
-            fetch("/calculate_hours", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    "shukkin_1": "08:00", "taikin_1": "18:00",  // 例
-                    "shukkin_2": "08:30", "taikin_2": "17:45",  // 例
-                    // その他の日付もここに追加
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                const regularHours = data.regular_hours;
-                const nightHours = data.night_hours;
-                
-                let tableHtml = "<table><thead><tr><th>日付</th><th>通常時間</th><th>深夜時間</th></tr></thead><tbody>";
-                for (let i = 0; i < regularHours.length; i++) {
-                    tableHtml += `<tr><td>${i + 1}</td><td>${regularHours[i]}</td><td>${nightHours[i]}</td></tr>`;
-                }
-                tableHtml += "</tbody></table>";
-                document.getElementById("hours-table").innerHTML = tableHtml;
-            })
-            .catch(error => alert("労働時間の計算中にエラーが発生しました"));
+        // ダークモードの切り替え
+        function toggleDarkMode() {
+            document.body.classList.toggle("dark-mode");
+            const button = document.getElementById("dark-mode-toggle");
+            if (document.body.classList.contains("dark-mode")) {
+                button.innerHTML = "🌞"; // モードがダークのときは太陽アイコンに変更
+            } else {
+                button.innerHTML = "🌙"; // モードがライトのときは月アイコンに変更
+            }
         }
     </script>
 </body>
