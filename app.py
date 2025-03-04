@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, session
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import datetime
@@ -7,11 +7,13 @@ import json
 
 app = Flask(__name__)
 
-# 環境変数から credentials.json の内容を取得
+# セッション用の秘密鍵設定（セッションを安全に使用するため）
+app.secret_key = os.urandom(24)
+
+# Google Sheets API 設定
 creds_json = os.getenv("GOOGLE_CREDENTIALS")
 creds_dict = json.loads(creds_json)
 
-# Google Sheets API 設定
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
 client = gspread.authorize(creds)
@@ -34,6 +36,7 @@ def login():
     password = data.get("password")
 
     if password == USER_PASSWORD:
+        session["user"] = "logged_in"  # ログイン状態をセッションに保存
         return jsonify({"success": True})
     else:
         return jsonify({"success": False})
@@ -41,6 +44,10 @@ def login():
 # ボタンが押されたときに記録する処理
 @app.route("/record", methods=["POST"])
 def record():
+    # セッションにユーザー情報がない場合、ログインしていないと判断
+    if "user" not in session:
+        return jsonify({"error": "ログインしてください！"}), 400
+
     data = request.json
     action = data["action"]
     now = datetime.datetime.now().strftime("%H:%M")
@@ -53,7 +60,7 @@ def record():
         "kyukei1_end": 5,  # E列（1回目の休憩終了）
         "kyukei2_start": 6,  # F列（2回目の休憩開始）
         "kyukei2_end": 7,  # G列（2回目の休憩終了）
-        "taikin": 8  # H列（退勤） -> ここを修正して退勤時間をH列に記録
+        "taikin": 8  # H列（退勤）
     }
 
     if action in action_map:
@@ -61,6 +68,12 @@ def record():
         return jsonify({"message": f"{action} を記録しました！"})
     else:
         return jsonify({"error": "無効なアクションです。"}), 400
+
+# ログアウト処理
+@app.route("/logout", methods=["POST"])
+def logout():
+    session.pop("user", None)  # セッションからログイン情報を削除
+    return jsonify({"message": "ログアウトしました！"})
 
 # Webページを表示するルート
 @app.route("/")

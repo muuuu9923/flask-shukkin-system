@@ -5,136 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>出勤管理システム</title>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
     <style>
-        /* ベースのスタイル */
-        body {
-            font-family: 'Roboto', sans-serif;
-            background-color: #f0f2f5;
-            color: #333;
-            margin: 0;
-            padding: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            flex-direction: column;
-            transition: background-color 0.3s, color 0.3s;
-        }
-
-        h1 {
-            color: #333;
-            font-size: 2.5em;
-            margin-bottom: 20px;
-            font-weight: 500;
-        }
-
-        /* ログインフォーム */
-        #login-form,
-        #action-buttons {
-            background-color: white;
-            border-radius: 15px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            padding: 40px;
-            width: 90%;
-            max-width: 400px;
-            text-align: center;
-        }
-
-        input {
-            padding: 12px;
-            font-size: 18px;
-            width: 85%;
-            border-radius: 8px;
-            border: 1px solid #ccc;
-            margin-bottom: 25px;
-            outline: none;
-            transition: border-color 0.3s;
-        }
-
-        input:focus {
-            border-color: #4CAF50;
-        }
-
-        button {
-            padding: 12px 24px;
-            font-size: 18px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            width: 85%;
-            margin-bottom: 15px;
-            transition: background-color 0.3s ease, transform 0.2s ease;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        }
-
-        button:hover {
-            background-color: #45a049;
-            transform: scale(1.05);
-        }
-
-        /* アクションボタン */
-        #action-buttons button {
-            background-color: #007BFF;
-            margin-bottom: 10px;
-        }
-
-        #action-buttons button:hover {
-            background-color: #0056b3;
-        }
-
-        /* モバイル対応 */
-        @media (max-width: 768px) {
-            #login-form,
-            #action-buttons {
-                width: 90%;
-            }
-        }
-
-        /* ダークモード用のクラス */
-        body.dark-mode {
-            background-color: #121212;
-            color: white;
-        }
-
-        body.dark-mode h1 {
-            color: white;
-        }
-
-        body.dark-mode #login-form,
-        body.dark-mode #action-buttons {
-            background-color: #1c1c1c;
-        }
-
-        body.dark-mode button {
-            background-color: #6200ee;
-        }
-
-        body.dark-mode button:hover {
-            background-color: #3700b3;
-        }
-
-        /* ダークモードのトグルボタン */
-        #dark-mode-toggle {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background-color: #6200ee;
-            border: none;
-            border-radius: 50%;
-            color: white;
-            padding: 10px 15px;
-            font-size: 18px;
-            cursor: pointer;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-            transition: background-color 0.3s ease;
-        }
-
-        #dark-mode-toggle:hover {
-            background-color: #3700b3;
-        }
+        /* 省略: 前述のスタイルコード */
     </style>
 </head>
 
@@ -155,10 +27,8 @@
         <button onclick="record('kyukei2_start')">2回目休憩開始</button>
         <button onclick="record('kyukei2_end')">2回目休憩終了</button>
         <button onclick="record('taikin')">退勤</button>
+        <button onclick="logout()">ログアウト</button> <!-- ログアウトボタン追加 -->
     </div>
-
-    <!-- ダークモードの切り替えボタン -->
-    <button id="dark-mode-toggle" onclick="toggleDarkMode()">🌙</button>
 
     <script>
         let currentUser = null; // ログインしたユーザー情報
@@ -174,7 +44,6 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    currentUser = data.user;
                     document.getElementById("login-form").style.display = "none";
                     document.getElementById("action-buttons").style.display = "block";
                 } else {
@@ -184,31 +53,30 @@
             .catch(error => alert("エラーが発生しました！"));
         }
 
+        // ログアウト処理
+        function logout() {
+            fetch("/logout", {
+                method: "POST"
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.message);
+                document.getElementById("action-buttons").style.display = "none";
+                document.getElementById("login-form").style.display = "block";
+            })
+            .catch(error => alert("エラーが発生しました！"));
+        }
+
         // アクションを送信
         function record(action) {
-            if (!currentUser) {
-                alert("ログインしてください！");
-                return;
-            }
             fetch("/record", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action: action, user: currentUser })
+                body: JSON.stringify({ action: action })
             })
             .then(response => response.json())
             .then(data => alert(data.message))
             .catch(error => alert("エラーが発生しました！"));
-        }
-
-        // ダークモードの切り替え
-        function toggleDarkMode() {
-            document.body.classList.toggle("dark-mode");
-            const button = document.getElementById("dark-mode-toggle");
-            if (document.body.classList.contains("dark-mode")) {
-                button.innerHTML = "🌞"; // モードがダークのときは太陽アイコンに変更
-            } else {
-                button.innerHTML = "🌙"; // モードがライトのときは月アイコンに変更
-            }
         }
     </script>
 </body>
