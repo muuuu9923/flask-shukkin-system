@@ -12,6 +12,11 @@ app.secret_key = os.urandom(24)
 
 # Google Sheets API 設定
 creds_json = os.getenv("GOOGLE_CREDENTIALS")
+
+# GOOGLE_CREDENTIALS 環境変数が設定されていない場合のエラーハンドリング
+if creds_json is None:
+    raise ValueError("環境変数 GOOGLE_CREDENTIALS が設定されていません")
+
 creds_dict = json.loads(creds_json)
 
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
