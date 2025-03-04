@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, session
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import datetime
@@ -54,45 +54,6 @@ def get_rounded_time(is_cut_off=True):
 
     return now.replace(minute=minutes, second=0, microsecond=0, hour=hour)
 
-def convert_minutes_to_fraction(minutes):
-    """分数に変換（6分単位）"""
-    return round(minutes / 6, 1)
-
-def calculate_work_hours(start_time_str, end_time_str):
-    """ 出勤時間と退勤時間から労働時間を計算（通常と深夜に分けて） """
-    start_time = datetime.datetime.strptime(start_time_str, "%H:%M")
-    end_time = datetime.datetime.strptime(end_time_str, "%H:%M")
-    
-    # 時間の差を計算
-    work_duration = end_time - start_time
-    
-    # 時間数に換算
-    total_minutes = work_duration.total_seconds() / 60  # 分に換算
-    
-    # 通常労働時間（22時前）
-    regular_minutes = 0
-    if start_time.hour < 22:
-        if end_time.hour <= 22:
-            regular_minutes = total_minutes
-        else:
-            # 22時以降の時間もあるので22時までの時間を計算
-            regular_minutes = (datetime.datetime(start_time.year, start_time.month, start_time.day, 22, 0) - start_time).total_seconds() / 60
-    
-    # 深夜労働時間（22時以降）
-    night_minutes = 0
-    if end_time.hour >= 22:
-        # 22時からの労働時間を計算
-        if end_time.hour < 24:
-            night_minutes = total_minutes
-        else:
-            night_minutes = (end_time - datetime.datetime(end_time.year, end_time.month, end_time.day, 22, 0)).total_seconds() / 60
-    
-    # 分数に変換
-    regular_hours = convert_minutes_to_fraction(regular_minutes)
-    night_hours = convert_minutes_to_fraction(night_minutes)
-    
-    return regular_hours, night_hours
-
 # ログイン認証
 @app.route("/login", methods=["POST"])
 def login():
@@ -105,10 +66,31 @@ def login():
     else:
         return jsonify({"success": False})
 
+# 今日の出勤状況を取得
+@app.route("/get_today_status", methods=["GET"])
+def get_today_status():
+    today_row = get_today_row()
+
+    # 出勤時間、1回目休憩開始、1回目休憩終了、退勤時間を取得
+    shukkin_time = sheet.cell(today_row, 3).value  # 出勤（C列）
+    kyukei1_start = sheet.cell(today_row, 4).value  # 1回目休憩開始（D列）
+    kyukei1_end = sheet.cell(today_row, 5).value  # 1回目休憩終了（E列）
+    kyukei2_start = sheet.cell(today_row, 6).value  # 2回目休憩開始（F列）
+    kyukei2_end = sheet.cell(today_row, 7).value  # 2回目休憩終了（G列）
+    taikin_time = sheet.cell(today_row, 9).value  # 退勤（I列）
+
+    return jsonify({
+        "shukkin_time": shukkin_time,
+        "kyukei1_start": kyukei1_start,
+        "kyukei1_end": kyukei1_end,
+        "kyukei2_start": kyukei2_start,
+        "kyukei2_end": kyukei2_end,
+        "taikin_time": taikin_time
+    })
+
 # ボタンが押されたときに記録する処理
 @app.route("/record", methods=["POST"])
 def record():
-    # セッションにユーザー情報がない場合、ログインしていないと判断
     if "user" not in session:
         return jsonify({"error": "ログインしてください！"}), 400
 
@@ -116,57 +98,63 @@ def record():
     action = data["action"]
     
     # 出勤、休憩開始、休憩終了、退勤に応じて時間を計算
-    if action in ["shukkin", "kyukei1_start", "kyukei2_start"]:
-        now = get_rounded_time(is_cut_off=True)  # 切り捨て
-    else:
-        now = get_rounded_time(is_cut_off=False)  # 切り上げ
+    now = get_rounded_time(is_cut_off=True) if action in ["shukkin", "kyukei1_start", "kyukei2_start"] else get_rounded_time(is_cut_off=False)
     
     row = get_today_row()
 
     # アクションに応じて記録するセルを決定
     action_map = {
         "shukkin": 3,  # C列（出勤）
-        "kyukei1_start": 4,  # D列（1回目の休憩開始）
-        "kyukei1_end": 5,  # E列（1回目の休憩終了）
-        "kyukei2_start": 6,  # F列（2回目の休憩開始）
-        "kyukei2_end": 7,  # G列（2回目の休憩終了）
-        "taikin": 8  # H列（退勤）
+        "kyukei1_start": 4,  # D列（1回目休憩開始）
+        "kyukei1_end": 5,  # E列（1回目休憩終了）
+        "kyukei2_start": 6,  # F列（2回目休憩開始）
+        "kyukei2_end": 7,  # G列（2回目休憩終了）
+        "taikin": 9  # I列（退勤）
     }
 
     if action in action_map:
         sheet.update_cell(row, action_map[action], now.strftime("%H:%M"))
-        
-        # 出勤時間と退勤時間から労働時間（通常と深夜）を計算
-        if action in ["shukkin", "taikin"]:  # 出勤または退勤時に労働時間計算
-            start_time = sheet.cell(row, 3).value  # 出勤時間（C列）
-            end_time = now.strftime("%H:%M")  # 退勤時間
-            regular_hours, night_hours = calculate_work_hours(start_time, end_time)
-            
-            # I列（通常労働時間）とJ列（深夜労働時間）に出力
-            sheet.update_cell(row, 9, regular_hours)  # I列（通常労働時間）
-            sheet.update_cell(row, 10, night_hours)  # J列（深夜労働時間）
-
-            # 日別の労働時間合計を計算（I6〜I36, J6〜J36に表示）
-            for i in range(6, 37):
-                total_regular_hours = 0
-                total_night_hours = 0
-                for j in range(6, 37):
-                    total_regular_hours += float(sheet.cell(i, 9).value or 0)  # I列（通常労働時間）
-                    total_night_hours += float(sheet.cell(i, 10).value or 0)  # J列（深夜労働時間）
-
-                # 合計をI6〜I36、J6〜J36に反映
-                sheet.update_cell(i, 9, total_regular_hours)  # I列（通常労働時間合計）
-                sheet.update_cell(i, 10, total_night_hours)  # J列（深夜労働時間合計）
-        
         return jsonify({"message": f"{action} を記録しました！"})
     else:
         return jsonify({"error": "無効なアクションです。"}), 400
 
-# ログアウト処理
-@app.route("/logout", methods=["POST"])
-def logout():
-    session.pop("user", None)  # セッションからログイン情報を削除
-    return jsonify({"message": "ログアウトしました！"})
+# 手動編集ページ表示
+@app.route("/manual_edit", methods=["GET"])
+def manual_edit():
+    if "user" not in session:
+        return redirect(url_for("index"))
+    
+    # 今日のデータを取得してページに渡す
+    today_row = get_today_row()
+    data = {
+        "shukkin": sheet.cell(today_row, 3).value,
+        "kyukei1_start": sheet.cell(today_row, 4).value,
+        "kyukei1_end": sheet.cell(today_row, 5).value,
+        "kyukei2_start": sheet.cell(today_row, 6).value,
+        "kyukei2_end": sheet.cell(today_row, 7).value,
+        "taikin": sheet.cell(today_row, 9).value
+    }
+    
+    return render_template("manual_edit.html", data=data)
+
+# 手動編集データの更新処理
+@app.route("/update_manual", methods=["POST"])
+def update_manual():
+    if "user" not in session:
+        return jsonify({"error": "ログインしてください！"}), 400
+    
+    data = request.json
+    today_row = get_today_row()
+    
+    # 入力されたデータをGoogle Sheetsに更新
+    sheet.update_cell(today_row, 3, data.get("shukkin"))
+    sheet.update_cell(today_row, 4, data.get("kyukei1_start"))
+    sheet.update_cell(today_row, 5, data.get("kyukei1_end"))
+    sheet.update_cell(today_row, 6, data.get("kyukei2_start"))
+    sheet.update_cell(today_row, 7, data.get("kyukei2_end"))
+    sheet.update_cell(today_row, 9, data.get("taikin"))
+    
+    return jsonify({"message": "データが更新されました！"})
 
 # Webページを表示するルート
 @app.route("/")
