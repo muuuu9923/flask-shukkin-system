@@ -8,15 +8,19 @@ import json
 app = Flask(__name__)
 
 # セッション用の秘密鍵設定（セッションを安全に使用するため）
-app.secret_key = os.urandom(24)  # ここでセッションのための秘密鍵を設定
+app.secret_key = os.urandom(24)
+
+# セッションCookieの設定
+# httpsで運用する場合は True。ローカルなど http でテストする際は False にする
+app.config['SESSION_COOKIE_SAMESITE'] = 'None'
+app.config['SESSION_COOKIE_SECURE'] = False
 
 # Google Sheets API 設定
 creds_json = os.getenv("GOOGLE_CREDENTIALS")
 if creds_json is None:
-    raise ValueError("環境変数 GOOGLE_CREDENTIALS が設定されていません")
+    raise ValueError("環境変数 'GOOGLE_CREDENTIALS' が設定されていません。")
 
 creds_dict = json.loads(creds_json)
-
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
 client = gspread.authorize(creds)
@@ -69,17 +73,16 @@ def login():
 # 今日の出勤状況を取得
 @app.route("/get_today_status", methods=["GET"])
 def get_today_status():
-    if "user" not in session:  # ログインしていない場合
+    if "user" not in session:
         return jsonify({"error": "ログインしてください！"}), 400
 
-    today_row = get_today_row()
-
-    shukkin_time = sheet.cell(today_row, 3).value  # 出勤（C列）
-    kyukei1_start = sheet.cell(today_row, 4).value  # 1回目休憩開始（D列）
-    kyukei1_end = sheet.cell(today_row, 5).value  # 1回目休憩終了（E列）
-    kyukei2_start = sheet.cell(today_row, 6).value  # 2回目休憩開始（F列）
-    kyukei2_end = sheet.cell(today_row, 7).value  # 2回目休憩終了（G列）
-    taikin_time = sheet.cell(today_row, 9).value  # 退勤（I列）
+    row = get_today_row()
+    shukkin_time = sheet.cell(row, 3).value  # 出勤（C列）
+    kyukei1_start = sheet.cell(row, 4).value  # 1回目休憩開始（D列）
+    kyukei1_end = sheet.cell(row, 5).value  # 1回目休憩終了（E列）
+    kyukei2_start = sheet.cell(row, 6).value  # 2回目休憩開始（F列）
+    kyukei2_end = sheet.cell(row, 7).value  # 2回目休憩終了（G列）
+    taikin_time = sheet.cell(row, 9).value  # 退勤（I列）
 
     return jsonify({
         "shukkin_time": shukkin_time,
@@ -93,22 +96,22 @@ def get_today_status():
 # ボタンが押されたときに記録する処理
 @app.route("/record", methods=["POST"])
 def record():
-    if "user" not in session:  # ログインしていない場合
+    if "user" not in session:
         return jsonify({"error": "ログインしてください！"}), 400
 
     data = request.json
     action = data["action"]
-    
+
     now = get_rounded_time(is_cut_off=True) if action in ["shukkin", "kyukei1_start", "kyukei2_start"] else get_rounded_time(is_cut_off=False)
     row = get_today_row()
 
     action_map = {
-        "shukkin": 3,  # 出勤
-        "kyukei1_start": 4,  # 1回目休憩開始
-        "kyukei1_end": 5,  # 1回目休憩終了
-        "kyukei2_start": 6,  # 2回目休憩開始
-        "kyukei2_end": 7,  # 2回目休憩終了
-        "taikin": 9  # 退勤
+        "shukkin": 3,       # 出勤  C列
+        "kyukei1_start": 4, # 1回目休憩開始 D列
+        "kyukei1_end": 5,   # 1回目休憩終了 E列
+        "kyukei2_start": 6, # 2回目休憩開始 F列
+        "kyukei2_end": 7,   # 2回目休憩終了 G列
+        "taikin": 9         # 退勤  I列
     }
 
     if action in action_map:
@@ -120,19 +123,18 @@ def record():
 # 手動編集ページ表示
 @app.route("/manual_edit", methods=["GET"])
 def manual_edit():
-    if "user" not in session:  # ログインしていない場合はログインページにリダイレクト
+    if "user" not in session:
         return redirect(url_for("index"))
     
-    today_row = get_today_row()
+    row = get_today_row()
     data = {
-        "shukkin": sheet.cell(today_row, 3).value,
-        "kyukei1_start": sheet.cell(today_row, 4).value,
-        "kyukei1_end": sheet.cell(today_row, 5).value,
-        "kyukei2_start": sheet.cell(today_row, 6).value,
-        "kyukei2_end": sheet.cell(today_row, 7).value,
-        "taikin": sheet.cell(today_row, 9).value
+        "shukkin": sheet.cell(row, 3).value,
+        "kyukei1_start": sheet.cell(row, 4).value,
+        "kyukei1_end": sheet.cell(row, 5).value,
+        "kyukei2_start": sheet.cell(row, 6).value,
+        "kyukei2_end": sheet.cell(row, 7).value,
+        "taikin": sheet.cell(row, 9).value
     }
-    
     return render_template("manual_edit.html", data=data)
 
 # 手動編集データの更新処理
@@ -140,24 +142,24 @@ def manual_edit():
 def update_manual():
     if "user" not in session:
         return jsonify({"error": "ログインしてください！"}), 400
-    
+
     data = request.json
-    today_row = get_today_row()
-    
-    # 入力されたデータをGoogle Sheetsに更新
-    sheet.update_cell(today_row, 3, data.get("shukkin"))
-    sheet.update_cell(today_row, 4, data.get("kyukei1_start"))
-    sheet.update_cell(today_row, 5, data.get("kyukei1_end"))
-    sheet.update_cell(today_row, 6, data.get("kyukei2_start"))
-    sheet.update_cell(today_row, 7, data.get("kyukei2_end"))
-    sheet.update_cell(today_row, 9, data.get("taikin"))
-    
+    row = get_today_row()
+
+    sheet.update_cell(row, 3, data.get("shukkin"))
+    sheet.update_cell(row, 4, data.get("kyukei1_start"))
+    sheet.update_cell(row, 5, data.get("kyukei1_end"))
+    sheet.update_cell(row, 6, data.get("kyukei2_start"))
+    sheet.update_cell(row, 7, data.get("kyukei2_end"))
+    sheet.update_cell(row, 9, data.get("taikin"))
+
     return jsonify({"message": "データが更新されました！"})
 
-# Webページを表示するルート
 @app.route("/")
 def index():
     return render_template("index.html")
 
 if __name__ == "__main__":
+    # 本番環境が https の場合は SESSION_COOKIE_SECURE を True にする
+    # ローカル環境でのテストは http なので、False にしないとクッキーがブロックされる可能性あり
     app.run(host="0.0.0.0", port=5000, debug=True)
