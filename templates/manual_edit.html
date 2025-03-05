@@ -1,97 +1,113 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>手動編集ページ</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
-            background-color: #f1f1f6;
-            text-align: center;
-            margin-top: 50px;
-            color: #333;
-        }
-        h1 {
-            font-size: 32px;
-            color: #1D1D1F;
-            margin-bottom: 30px;
-        }
-        input[type="time"], button {
-            padding: 15px;
-            font-size: 18px;
-            border-radius: 12px;
-            border: 1px solid #ccc;
-            width: 80%;
-            max-width: 400px;
-            margin: 10px;
-        }
-        button {
-            background-color: #007aff;
-            color: white;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-        button:hover {
-            background-color: #0051a8;
-        }
-        input[type="time"] {
-            background-color: #f7f7f7;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <title>手動編集ページ (日付指定)</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
+                   "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
+                   "Helvetica Neue", sans-serif;
+      background-color: #f1f1f6;
+      text-align: center;
+      margin-top: 50px;
+      color: #333;
+    }
+    h1 {
+      font-size: 32px;
+      margin-bottom: 30px;
+    }
+    input, button {
+      padding: 15px;
+      font-size: 18px;
+      border-radius: 12px;
+      border: 1px solid #ccc;
+      width: 80%;
+      max-width: 400px;
+      margin: 10px;
+    }
+    button {
+      background-color: #007aff;
+      color: white;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    button:hover {
+      background-color: #0051a8;
+    }
+  </style>
 </head>
 <body>
-    <h1>手動編集ページ</h1>
+  <h1>手動編集 (日付指定)</h1>
 
-    <form id="edit-form">
-        <label for="shukkin">出勤時間:</label>
-        <input type="time" id="shukkin" value="{{ data['shukkin'] }}">
-        <br>
-        <label for="kyukei1_start">1回目休憩開始:</label>
-        <input type="time" id="kyukei1_start" value="{{ data['kyukei1_start'] }}">
-        <br>
-        <label for="kyukei1_end">1回目休憩終了:</label>
-        <input type="time" id="kyukei1_end" value="{{ data['kyukei1_end'] }}">
-        <br>
-        <label for="kyukei2_start">2回目休憩開始:</label>
-        <input type="time" id="kyukei2_start" value="{{ data['kyukei2_start'] }}">
-        <br>
-        <label for="kyukei2_end">2回目休憩終了:</label>
-        <input type="time" id="kyukei2_end" value="{{ data['kyukei2_end'] }}">
-        <br>
-        <label for="taikin">退勤時間:</label>
-        <input type="time" id="taikin" value="{{ data['taikin'] }}">
-        <br><br>
-        <button type="button" onclick="updateManual()">更新</button>
-    </form>
-
+  <!-- 日付指定フォーム (GETクエリパラメータで再読み込み) -->
+  <form action="/manual_edit" method="GET">
+    <label for="day">編集したい日付(1〜31):</label><br>
+    <input type="number" id="day" name="day" min="1" max="31"
+           value="{{ data['day'] if data.get('day') else 1 }}">
     <br>
-    <button onclick="showSheetData()">シートデータを表示</button>
+    <button type="submit">特定日を表示</button>
+  </form>
 
-    <script>
-        function updateManual() {
-            const data = {
-                "shukkin": document.getElementById("shukkin").value,
-                "kyukei1_start": document.getElementById("kyukei1_start").value,
-                "kyukei1_end": document.getElementById("kyukei1_end").value,
-                "kyukei2_start": document.getElementById("kyukei2_start").value,
-                "kyukei2_end": document.getElementById("kyukei2_end").value,
-                "taikin": document.getElementById("taikin").value
-            };
+  <br>
 
-            fetch("/update_manual", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(data)
-            })
-            .then(response => response.json())
-            .then(data => alert(data.message))
-            .catch(error => alert("エラーが発生しました！"));
-        }
+  <!-- 入力フォーム (実データ更新) -->
+  <form id="edit-form">
+    <label>日付 (表示のみ): {{ data.day }}</label><br><br>
 
-        function showSheetData() {
-            window.open("https://docs.google.com/spreadsheets/d/1A3wPi4iZ2PCf-WSPFqeNvWKltmwTgsZOa78OfE6M1kY/edit", "_blank");
-        }
-    </script>
+    <label for="shukkin">出勤:</label>
+    <input type="time" id="shukkin" value="{{ data['shukkin'] }}"><br><br>
+
+    <label for="kyukei1_start">1回目休憩開始:</label>
+    <input type="time" id="kyukei1_start" value="{{ data['kyukei1_start'] }}"><br><br>
+
+    <label for="kyukei1_end">1回目休憩終了:</label>
+    <input type="time" id="kyukei1_end" value="{{ data['kyukei1_end'] }}"><br><br>
+
+    <label for="kyukei2_start">2回目休憩開始:</label>
+    <input type="time" id="kyukei2_start" value="{{ data['kyukei2_start'] }}"><br><br>
+
+    <label for="kyukei2_end">2回目休憩終了:</label>
+    <input type="time" id="kyukei2_end" value="{{ data['kyukei2_end'] }}"><br><br>
+
+    <label for="taikin">退勤:</label>
+    <input type="time" id="taikin" value="{{ data['taikin'] }}"><br><br>
+
+    <!-- hiddenでday情報を持つ -->
+    <input type="hidden" id="edit-day" value="{{ data['day'] }}">
+
+    <button type="button" onclick="updateManual()">更新</button>
+  </form>
+
+  <br>
+  <button onclick="showSheet()">シートを表示</button>
+
+  <script>
+    function updateManual() {
+      const dayVal = document.getElementById("edit-day").value;
+      const data = {
+        "day": dayVal,
+        "shukkin": document.getElementById("shukkin").value,
+        "kyukei1_start": document.getElementById("kyukei1_start").value,
+        "kyukei1_end": document.getElementById("kyukei1_end").value,
+        "kyukei2_start": document.getElementById("kyukei2_start").value,
+        "kyukei2_end": document.getElementById("kyukei2_end").value,
+        "taikin": document.getElementById("taikin").value
+      };
+
+      fetch("/update_manual", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      })
+      .then(res => res.json())
+      .then(res => alert(res.message))
+      .catch(error => alert("エラーが発生しました！"));
+    }
+
+    function showSheet() {
+      window.open("https://docs.google.com/spreadsheets/d/1A3wPi4iZ2PCf-WSPFqeNvWKltmwTgsZOa78OfE6M1kY/edit","_blank");
+    }
+  </script>
 </body>
 </html>
