@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>出勤管理システム (ログインあり)</title>
+  <title>出勤管理システム (ログインなし)</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
@@ -17,7 +17,7 @@
       font-size: 32px;
       margin-bottom: 30px;
     }
-    input[type="password"], button {
+    button {
       padding: 15px;
       font-size: 18px;
       border-radius: 12px;
@@ -25,8 +25,6 @@
       width: 80%;
       max-width: 400px;
       margin: 10px;
-    }
-    button {
       background-color: #007aff;
       color: white;
       cursor: pointer;
@@ -35,47 +33,14 @@
     button:hover {
       background-color: #0051a8;
     }
-    input[type="password"] {
-      background-color: #f7f7f7;
-    }
-    #action-buttons {
-      display: none;
-    }
   </style>
   <script>
-    let currentUser = null;
-
-    // ログイン処理
-    function login() {
-      const password = document.getElementById("password").value;
-      fetch("/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: password })
-      })
-      .then(response => response.json())
-      .then(data => {
-        if (data.success) {
-          currentUser = data.user;  // "logged_in"
-          document.getElementById("login-form").style.display = "none";
-          document.getElementById("action-buttons").style.display = "block";
-        } else {
-          alert("パスワードが間違っています！");
-        }
-      })
-      .catch(error => alert("エラーが発生しました！"));
-    }
-
-    // アクション送信 (出勤・休憩・退勤)
+    // ログイン機能を削除したため currentUser 管理は不要
     function record(action) {
-      if (!currentUser) {
-        alert("ログインしてください！");
-        return;
-      }
       fetch("/record", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: action, user: currentUser })
+        body: JSON.stringify({ action: action })
       })
       .then(response => response.json())
       .then(res => {
@@ -87,28 +52,16 @@
   </script>
 </head>
 <body>
-  <h1>出勤管理システム (ログインあり, 日付指定編集OK)</h1>
+  <h1>出勤管理システム (ログインなし, 日付指定編集OK)</h1>
 
-  <!-- ログインフォーム -->
-  <div id="login-form">
-    <input type="password" id="password" placeholder="パスワードを入力" />
-    <button onclick="login()">ログイン</button>
-  </div>
-
-  <!-- ログイン成功後に表示されるボタン群 -->
-  <div id="action-buttons" style="display:none;">
-    <button onclick="record('shukkin')">出勤</button>
-    <button onclick="record('kyukei1_start')">1回目休憩開始</button>
-    <button onclick="record('kyukei1_end')">1回目休憩終了</button>
-    <button onclick="record('kyukei2_start')">2回目休憩開始</button>
-    <button onclick="record('kyukei2_end')">2回目休憩終了</button>
-    <button onclick="record('taikin')">退勤</button>
-    <br><br>
-    <!-- 手動編集ページへ -->
-    <a href="/manual_edit">
-      <button>手動編集ページ(今日)</button>
-    </a>
-    <p>※ 特定日を編集したい場合は manual_edit.html で入力</p>
-  </div>
+  <button onclick="record('shukkin')">出勤</button>
+  <button onclick="record('kyukei1_start')">1回目休憩開始</button>
+  <button onclick="record('kyukei1_end')">1回目休憩終了</button>
+  <button onclick="record('kyukei2_start')">2回目休憩開始</button>
+  <button onclick="record('kyukei2_end')">2回目休憩終了</button>
+  <button onclick="record('taikin')">退勤</button>
+  <br><br>
+  <!-- 手動編集ページへ遷移 (今日の日付) -->
+  <a href="/manual_edit"><button>手動編集ページ(今日)</button></a>
 </body>
 </html>

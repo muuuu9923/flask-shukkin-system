@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>手動編集ページ (日付指定)</title>
+  <title>手動編集ページ (ログインなし, 日付指定)</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
@@ -38,42 +38,41 @@
   </style>
 </head>
 <body>
-  <h1>手動編集 (日付指定)</h1>
+  <h1>日付を指定して手動編集</h1>
 
-  <!-- 日付指定フォーム (GETクエリパラメータで再読み込み) -->
+  <!-- 日付指定フォーム -->
   <form action="/manual_edit" method="GET">
-    <label for="day">編集したい日付(1〜31):</label><br>
+    <label for="day">編集したい日付 (1〜31):</label><br>
     <input type="number" id="day" name="day" min="1" max="31"
            value="{{ data['day'] if data.get('day') else 1 }}">
     <br>
-    <button type="submit">特定日を表示</button>
+    <button type="submit">指定日を表示</button>
   </form>
 
   <br>
 
-  <!-- 入力フォーム (実データ更新) -->
+  <!-- 時間入力フォーム -->
   <form id="edit-form">
-    <label>日付 (表示のみ): {{ data.day }}</label><br><br>
-
-    <label for="shukkin">出勤:</label>
+    <p>日付: {{ data.day }} 日</p>
+    <label>出勤</label><br>
     <input type="time" id="shukkin" value="{{ data['shukkin'] }}"><br><br>
 
-    <label for="kyukei1_start">1回目休憩開始:</label>
+    <label>1回目休憩開始</label><br>
     <input type="time" id="kyukei1_start" value="{{ data['kyukei1_start'] }}"><br><br>
 
-    <label for="kyukei1_end">1回目休憩終了:</label>
+    <label>1回目休憩終了</label><br>
     <input type="time" id="kyukei1_end" value="{{ data['kyukei1_end'] }}"><br><br>
 
-    <label for="kyukei2_start">2回目休憩開始:</label>
+    <label>2回目休憩開始</label><br>
     <input type="time" id="kyukei2_start" value="{{ data['kyukei2_start'] }}"><br><br>
 
-    <label for="kyukei2_end">2回目休憩終了:</label>
+    <label>2回目休憩終了</label><br>
     <input type="time" id="kyukei2_end" value="{{ data['kyukei2_end'] }}"><br><br>
 
-    <label for="taikin">退勤:</label>
+    <label>退勤</label><br>
     <input type="time" id="taikin" value="{{ data['taikin'] }}"><br><br>
 
-    <!-- hiddenでday情報を持つ -->
+    <!-- hiddenフィールドでdayを保持 -->
     <input type="hidden" id="edit-day" value="{{ data['day'] }}">
 
     <button type="button" onclick="updateManual()">更新</button>
@@ -106,7 +105,7 @@
     }
 
     function showSheet() {
-      window.open("https://docs.google.com/spreadsheets/d/1A3wPi4iZ2PCf-WSPFqeNvWKltmwTgsZOa78OfE6M1kY/edit","_blank");
+      window.open("https://docs.google.com/spreadsheets/d/1A3wPi4iZ2PCf-WSPFqeNvWKltmwTgsZOa78OfE6M1kY/edit", "_blank");
     }
   </script>
 </body>

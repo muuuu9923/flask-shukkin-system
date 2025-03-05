@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for
+from flask import Flask, render_template, request, jsonify
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import datetime
@@ -7,11 +7,10 @@ import json
 
 app = Flask(__name__)
 
-# セッション用の秘密鍵設定（セッションを安全に使用するため）
+# セッション用の鍵（ログイン機能は使わないが、Flaskの仕様上設定しておいても問題ありません）
 app.secret_key = os.urandom(24)
 
-# セッションCookieの設定
-# もし本番が https の場合は True、ローカル http は False
+# Cookieの設定（ログイン機能がないので特に関係ないが、動作に問題はありません）
 app.config['SESSION_COOKIE_SAMESITE'] = 'None'
 app.config['SESSION_COOKIE_SECURE'] = False
 
@@ -25,13 +24,15 @@ scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/au
 creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
 client = gspread.authorize(creds)
 
-SPREADSHEET_ID = "1A3wPi4iZ2PCf-WSPFqeNvWKltmwTgsZOa78OfE6M1kY"  # スプレッドシートID
+# スプレッドシートID
+SPREADSHEET_ID = "1A3wPi4iZ2PCf-WSPFqeNvWKltmwTgsZOa78OfE6M1kY"
 sheet = client.open_by_key(SPREADSHEET_ID).sheet1
 
-USER_PASSWORD = "5689"  # ログイン用のパスワード
-
 def day_to_row(day: int) -> int:
-    """日付 day をスプレッドシート行に換算 (1 -> 6, 2 -> 7, ...)"""
+    """
+    指定日(day)をスプレッドシートの行番号に換算
+    1 -> 6行目, 2 -> 7行目, ...
+    """
     return day + 5
 
 def round_down_to_nearest_6(minutes):
@@ -44,51 +45,37 @@ def get_rounded_time(is_cut_off=True):
     now = datetime.datetime.now()
     minutes = now.minute
     hour = now.hour
+
     if is_cut_off:
         minutes = round_down_to_nearest_6(minutes)
     else:
         minutes = round_up_to_nearest_6(minutes)
+
     if hour >= 24:
         hour += 1
+
     return now.replace(minute=minutes, second=0, microsecond=0, hour=hour)
 
 ########################################
-# ログイン機能
-########################################
-@app.route("/login", methods=["POST"])
-def login():
-    data = request.json
-    password = data.get("password")
-    if password == USER_PASSWORD:
-        session["user"] = "logged_in"
-        return jsonify({"success": True})
-    else:
-        return jsonify({"success": False})
-
-########################################
-# 出勤・休憩・退勤の記録
+# 出勤・休憩・退勤の記録 (ログイン機能なし)
 ########################################
 @app.route("/record", methods=["POST"])
 def record():
-    # ログインチェック
-    if "user" not in session:
-        return jsonify({"error": "ログインしてください！"}), 400
-
     data = request.json
     action = data.get("action")
 
-    # 「今日」の日付のみを編集する（任意のday指定ではない）
-    day = datetime.datetime.now().day
-    row = day_to_row(day)
+    # 今日の日付を取得して、該当行に記録する
+    today = datetime.datetime.now().day
+    row = day_to_row(today)
 
     now = get_rounded_time(is_cut_off=(action in ["shukkin","kyukei1_start","kyukei2_start"]))
     action_map = {
-        "shukkin": 3,
-        "kyukei1_start": 4,
-        "kyukei1_end": 5,
-        "kyukei2_start": 6,
-        "kyukei2_end": 7,
-        "taikin": 9
+        "shukkin": 3,       # 出勤  C列
+        "kyukei1_start": 4, # 1回目休憩開始 D列
+        "kyukei1_end": 5,   # 1回目休憩終了 E列
+        "kyukei2_start": 6, # 2回目休憩開始 F列
+        "kyukei2_end": 7,   # 2回目休憩終了 G列
+        "taikin": 9         # 退勤  I列
     }
 
     if action in action_map:
@@ -98,15 +85,14 @@ def record():
         return jsonify({"error": "無効なアクションです。"}), 400
 
 ########################################
-# 手動編集ページ (日付指定)
+# 手動編集ページ (日付指定可能)
 ########################################
 @app.route("/manual_edit", methods=["GET"])
 def manual_edit():
-    # ログインチェック
-    if "user" not in session:
-        return redirect(url_for("index"))
-
-    # GETパラメータ(day)が指定されていなければ「今日」を使う
+    """
+    ?day=XX のクエリパラメータで編集する日を指定。
+    未指定なら今日の日付を編集する。
+    """
     day_str = request.args.get("day")
     if day_str is None:
         day = datetime.datetime.now().day
@@ -127,17 +113,16 @@ def manual_edit():
 
 @app.route("/update_manual", methods=["POST"])
 def update_manual():
-    # ログインチェック
-    if "user" not in session:
-        return jsonify({"error": "ログインしてください！"}), 400
-
+    """
+    JSON で { day, shukkin, kyukei1_start, ... } を受け取り、その日の行を更新。
+    """
     data = request.json
     day = data.get("day")
-
     if day is None:
-        return jsonify({"error": "'day' が指定されていません"}), 400
+        return jsonify({"error": "日付(day)が指定されていません"}), 400
 
     row = day_to_row(int(day))
+
     sheet.update_cell(row, 3, data.get("shukkin"))
     sheet.update_cell(row, 4, data.get("kyukei1_start"))
     sheet.update_cell(row, 5, data.get("kyukei1_end"))
