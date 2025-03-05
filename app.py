@@ -7,10 +7,10 @@ import json
 
 app = Flask(__name__)
 
-# セッション用の鍵（ログイン機能は使わないが、Flaskの仕様上設定しておいても問題ありません）
+# セッション用の鍵（ログイン機能を削除したので特に利用しませんが、Flask起動時に設定しておく）
 app.secret_key = os.urandom(24)
 
-# Cookieの設定（ログイン機能がないので特に関係ないが、動作に問題はありません）
+# Cookieの設定（ログイン機能なしのため必須ではない）
 app.config['SESSION_COOKIE_SAMESITE'] = 'None'
 app.config['SESSION_COOKIE_SECURE'] = False
 
@@ -30,7 +30,7 @@ sheet = client.open_by_key(SPREADSHEET_ID).sheet1
 
 def day_to_row(day: int) -> int:
     """
-    指定日(day)をスプレッドシートの行番号に換算
+    指定日(day)をスプレッドシート行に換算
     1 -> 6行目, 2 -> 7行目, ...
     """
     return day + 5
@@ -50,10 +50,8 @@ def get_rounded_time(is_cut_off=True):
         minutes = round_down_to_nearest_6(minutes)
     else:
         minutes = round_up_to_nearest_6(minutes)
-
     if hour >= 24:
         hour += 1
-
     return now.replace(minute=minutes, second=0, microsecond=0, hour=hour)
 
 ########################################
@@ -70,12 +68,12 @@ def record():
 
     now = get_rounded_time(is_cut_off=(action in ["shukkin","kyukei1_start","kyukei2_start"]))
     action_map = {
-        "shukkin": 3,       # 出勤  C列
-        "kyukei1_start": 4, # 1回目休憩開始 D列
-        "kyukei1_end": 5,   # 1回目休憩終了 E列
-        "kyukei2_start": 6, # 2回目休憩開始 F列
-        "kyukei2_end": 7,   # 2回目休憩終了 G列
-        "taikin": 9         # 退勤  I列
+        "shukkin": 3,
+        "kyukei1_start": 4,
+        "kyukei1_end": 5,
+        "kyukei2_start": 6,
+        "kyukei2_end": 7,
+        "taikin": 9
     }
 
     if action in action_map:
@@ -113,16 +111,12 @@ def manual_edit():
 
 @app.route("/update_manual", methods=["POST"])
 def update_manual():
-    """
-    JSON で { day, shukkin, kyukei1_start, ... } を受け取り、その日の行を更新。
-    """
     data = request.json
     day = data.get("day")
     if day is None:
         return jsonify({"error": "日付(day)が指定されていません"}), 400
 
     row = day_to_row(int(day))
-
     sheet.update_cell(row, 3, data.get("shukkin"))
     sheet.update_cell(row, 4, data.get("kyukei1_start"))
     sheet.update_cell(row, 5, data.get("kyukei1_end"))

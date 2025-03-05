@@ -35,7 +35,6 @@
     }
   </style>
   <script>
-    // ログイン機能を削除したため currentUser 管理は不要
     function record(action) {
       fetch("/record", {
         method: "POST",
@@ -52,7 +51,7 @@
   </script>
 </head>
 <body>
-  <h1>出勤管理システム (ログインなし, 日付指定編集OK)</h1>
+  <h1>出勤管理システム (ログインなし)</h1>
 
   <button onclick="record('shukkin')">出勤</button>
   <button onclick="record('kyukei1_start')">1回目休憩開始</button>
